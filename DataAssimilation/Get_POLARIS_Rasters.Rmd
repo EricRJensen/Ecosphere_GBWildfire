@@ -1,0 +1,95 @@
+---
+title: "Get Polaris"
+author: "Eric Jensen"
+date: "5/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(raster)
+library(tidyverse)
+library(rvest)
+library(stringr)
+```
+
+Download all of the Great Basin Polaris data
+```{r}
+# List of desired soils variables
+list_vars <- c('clay', 'sand', 'silt', 'om', 'theta_r', 'theta_s', 'bd', 'ph') # clay was clay was already run
+
+# Function to loop over horizons and download all Great Basin tifs for each soil variable
+download_polaris <- function(variable){
+    # Create variable directory
+    # Create directory to download files to
+    dir.create(paste('C:/Users/erjensen/Documents/Thesis/ThesisGIS/POLARIS/', variable, '/', sep = ''))
+  
+    # List of horizons to loop over
+    list_horz <- c('0_5', '5_15', '15_30', '30_60') 
+    # Extract the mean each time
+    stat_name <- '/mean/'
+    for(i in list_horz){ 
+      
+        # Create directory to download files to
+        dir.create(paste('C:/Users/erjensen/Documents/Thesis/ThesisGIS/POLARIS/', variable, '/', i, sep = ''))
+        
+        # POLARIS url
+        root_url <- paste('http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0/', variable, stat_name, i, sep = '')
+        print(root_url)
+        
+        # Read in the html table page and extract the table
+        var_html <- read_html(root_url, remove.empty = TRUE, trim = TRUE, skip =2)
+        var_table <- html_table(var_html)[[1]] %>% dplyr::select(-c(1,Description))
+
+        # Get the links as strings
+        links <- var_html %>%
+          # this get the links in the overflow table
+          # row
+          rvest::html_nodes("tr") %>%
+          # the links
+          rvest::html_nodes("a") %>%
+          # the header ref
+          rvest::html_attr("href")
+
+        # Drop the gibberish character strings
+        clean_links <- links[grepl("tif$", links)]
+
+        # Paste together the full links
+        full_links <- vector()
+        for(j in clean_links){
+          full_links[j] <- paste(root_url, j, sep = '/') }
+
+        # Define character vector for Great Basin latitudes and longitudes // subset the links character strings to those that match the         longitude and latitude stings
+        gb_lats <- c('lat36', 'lat37', 'lat38', 'lat39', 'lat40', 'lat41', 'lat42', 'lat43', 'lat44')
+        gb_longs <- c('lon-112', 'lon-113', 'lon-114', 'lon-115', 'lon-116', 'lon-117', 'lon-118', 'lon-119', 'lon-120', 'lon-121', 'lon-122') 
+        gb_links <- full_links[grepl(paste(gb_lats, collapse = "|"), full_links)]
+        gb_links <- gb_links[grepl(paste(gb_longs, collapse = "|"), gb_links)]
+
+            # Download all Great Basin soils files
+            for(k in gb_links){
+              print(k)
+              sub <- str_split(k, "/")[[1]][10]
+              path <- paste('C:/Users/erjensen/Documents/Thesis/ThesisGIS/POLARIS/', variable, '/', i, '/', sub, sep = '')
+              print(path)
+              download.file(k, destfile = path, mode = "wb")
+        } } }
+
+map(list_vars, download_polaris)
+```
+
+Create mosaics for each of the horizons for each variable 
+```{r}
+# Nested loops to build mosaics
+for(i in list.files('C:/Users/erjensen/Documents/Thesis/ThesisGIS/POLARIS/', full.names = TRUE)){
+  for(j in list.files(i, full.names = TRUE)){
+    print(j)
+    rast_list = list()
+    for(k in list.files(j, full.names = TRUE)){
+      rast_list[k] <-raster(k)
+    }
+  names(rast_list) <- NULL
+  rast_list$fun <- mean
+  mos <- do.call(mosaic, rast_list)
+  writeRaster(mos, paste(j, "_mosaic.tif", sep = ""))
+  }
+}
+```
