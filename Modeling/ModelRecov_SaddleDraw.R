@@ -238,8 +238,8 @@ ModelRasters = stack(tifs)
 names(ModelRasters) <- paste('p.', names(ModelRasters), sep = '')
 Saddle = predict(ModelRasters, Post_model)
 
-# Assess post-fire LongDraw visually
-SaddlePost <- raster('C:/Users/erjensen/Documents/Thesis/ThesisAIM/data/SodaFire_post.tif')
+# Assess post-fire Saddle Draw visually
+SaddlePost <- raster('C:/Users/erjensen/Documents/Thesis/ThesisAIM/data/Recov_rasters/SaddleDraw/NDPDI_post.tif')
 SaddlePre <- raster('C:/Users/erjensen/Documents/Thesis/ThesisAIM/data/Recov_rasters/SaddleDraw/NDPDI_pre.tif')
 
 # Visualize and export the predicted surface
